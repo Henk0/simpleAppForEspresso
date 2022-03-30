@@ -10,6 +10,7 @@ import static androidx.test.espresso.intent.matcher.IntentMatchers.hasData;
 import static androidx.test.espresso.Espresso.openActionBarOverflowOrOptionsMenu;
 import static org.junit.Assert.assertEquals;
 import static org.hamcrest.Matchers.anyOf;
+import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 
 import android.content.Context;
 
@@ -23,16 +24,27 @@ import androidx.test.espresso.intent.Intents;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.espresso.IdlingRegistry;
-import android.view.View;
+import androidx.test.rule.GrantPermissionRule;
+import androidx.test.uiautomator.UiDevice;
+import android.os.Environment;
+import android.Manifest;
 
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.junit.rules.TestWatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeMatcher;
 import org.junit.After;
 import org.junit.Before;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+
+import io.qameta.allure.android.runners.AllureAndroidJUnit4;
+import io.qameta.allure.kotlin.Allure;
 
 import ru.kkuzmichev.simpleappforespresso.matchers.ItemVisibleMatcher;
 import ru.kkuzmichev.simpleappforespresso.matchers.SizeMatcher;
@@ -42,7 +54,7 @@ import ru.kkuzmichev.simpleappforespresso.matchers.SizeMatcher;
  *
  * @see <a href="http://d.android.com/tools/testing">Testing documentation</a>
  */
-@RunWith(AndroidJUnit4.class)
+@RunWith(AllureAndroidJUnit4.class)
 public class ExampleInstrumentedTest {
 
     @Before
@@ -59,16 +71,37 @@ public class ExampleInstrumentedTest {
     public ActivityTestRule<MainActivity> activityTestRule =
             new ActivityTestRule<>(MainActivity.class);
 
+    @Rule
+    public TestWatcher watcher = new TestWatcher() {
+        @Override
+        protected void failed(Throwable e, org.junit.runner.Description description) {
+            String className = description.getClassName();
+            className = className.substring(className.lastIndexOf('.') + 1);
+            String methodName = description.getMethodName();
+            takeScreenshot(className + "#" + methodName);
+        }
+    };
+
+    @Rule
+    public GrantPermissionRule mRuntimePermissionRule = GrantPermissionRule
+            .grant(
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                    Manifest.permission.READ_EXTERNAL_STORAGE
+            );
+
     @Test
     public void useAppContext() {
-        // Context of the app under test.
-        Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        Allure.feature("useAppContext");
+
+        Context appContext = getInstrumentation().getTargetContext();
         assertEquals("ru.kkuzmichev.simpleappforespresso", appContext.getPackageName());
     }
 
     // Negative
     @Test
     public void negativeCheckFragmentText() {
+        Allure.feature("CheckFragmentText");
+
         ViewInteraction mainText = onView(
                 withId(R.id.text_home)
         );
@@ -82,6 +115,8 @@ public class ExampleInstrumentedTest {
     // Positive
     @Test
     public void positiveCheckButtonIsDisplayed() {
+        Allure.feature("ButtonIsDisplayed");
+
         ViewInteraction button = onView(
                 withId(R.id.fab)
         );
@@ -95,6 +130,7 @@ public class ExampleInstrumentedTest {
 
     @Test
     public void testIntent() {
+        Allure.feature("testIntent");
         Intents.init();
 
         try {
@@ -109,6 +145,8 @@ public class ExampleInstrumentedTest {
 
     @Test
     public void testGalleryList() {
+        Allure.feature("testGalleryList");
+
         onView(withId(R.id.drawer_layout)).perform(DrawerActions.open());
         onView(withId(R.id.nav_gallery)).perform(click());
         onView(withId(R.id.recycle_view)).check(ViewAssertions.matches(SizeMatcher.of(10)));
@@ -116,9 +154,26 @@ public class ExampleInstrumentedTest {
 
     @Test
     public void testItemElementDisplayed() {
+        Allure.feature("testItemElementDisplayed");
+
         onView(withId(R.id.drawer_layout)).perform(DrawerActions.open());
         onView(withId(R.id.nav_gallery)).perform(click());
         ViewInteraction recyclerView = onView(withId(R.id.recycle_view));
         recyclerView.check(matches(new ItemVisibleMatcher(RecyclerView.class, 0)));
+    }
+
+    private void takeScreenshot(String name) {
+        File path = new File(Environment.getExternalStorageDirectory().getAbsolutePath() + "/screenshots/");
+        if (!path.exists()) {
+            path.mkdirs();
+        }
+        UiDevice device = UiDevice.getInstance(getInstrumentation());
+        String filename = name + ".png";
+        device.takeScreenshot(new File(path, filename));
+        try {
+            Allure.attachment(filename, new FileInputStream(new File(path, filename)));
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
     }
 }
